@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 960" width="1440" height="960" role="img" aria-labelledby="svgTitle svgDesc" preserveAspectRatio="xMidYMid meet">
+  <title id="svgTitle">Private-ID 隐私标识对齐</title>
+  <desc id="svgDesc">在不公开原始标识的情况下，为相同对象生成统一隐私标识</desc>
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#110b1f"/>
+      <stop offset="0.48" stop-color="#080512"/>
+      <stop offset="1" stop-color="#150e27"/>
+    </linearGradient>
+    <radialGradient id="haloCyan" cx="50%" cy="42%" r="55%">
+      <stop offset="0" stop-color="#2563eb" stop-opacity="0.17"/>
+      <stop offset="0.44" stop-color="#2563eb" stop-opacity="0.045"/>
+      <stop offset="1" stop-color="#2563eb" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="haloGreen" cx="80%" cy="55%" r="52%">
+      <stop offset="0" stop-color="#00d978" stop-opacity="0.07"/>
+      <stop offset="0.48" stop-color="#00d978" stop-opacity="0.018"/>
+      <stop offset="1" stop-color="#00d978" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#2563eb" stroke-opacity="0.12" stroke-width="0.7"/>
+    </pattern>
+    <pattern id="dotGrid" width="16" height="16" patternUnits="userSpaceOnUse">
+      <circle cx="1.8" cy="1.8" r="1.2" fill="#3a3155" opacity="0.25"/>
+    </pattern>
+    <linearGradient id="panelGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#110b1f" stop-opacity="0.96"/>
+      <stop offset="1" stop-color="#090614" stop-opacity="0.98"/>
+    </linearGradient>
+    <linearGradient id="resultGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#151026" stop-opacity="0.97"/>
+      <stop offset="1" stop-color="#090614" stop-opacity="0.98"/>
+    </linearGradient>
+    <linearGradient id="arrowGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2563eb" stop-opacity="0.1"/>
+      <stop offset="0.55" stop-color="#2563eb" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#60a5fa" stop-opacity="0.95"/>
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1e3154"/>
+      <stop offset="0.55" stop-color="#254475"/>
+      <stop offset="1" stop-color="#182235"/>
+    </linearGradient>
+    <linearGradient id="lockGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1511"/>
+      <stop offset="1" stop-color="#60a5fa"/>
+    </linearGradient>
+    <linearGradient id="deviceGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#183326"/>
+      <stop offset="0.58" stop-color="#14251d"/>
+      <stop offset="1" stop-color="#0d1511"/>
+    </linearGradient>
+    <linearGradient id="bldgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e3154"/>
+      <stop offset="1" stop-color="#182235"/>
+    </linearGradient>
+    <filter id="cyanGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.02 0 0 0 0 0.95 0 0 0 0 1 0 0 0 0.72 0" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="greenGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.0 0 0 0 0 1 0 0 0 0 0.35 0 0 0 0.75 0" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style><![CDATA[
+      svg { background:#080512; }
+      text { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', Arial, sans-serif; letter-spacing: 0; }
+      .title { font-size: 66px; font-weight: 800; fill: #ffffff; }
+      .title-accent { fill:#00ff99; }
+      .subtitle { font-size: 28px; fill: #bdc9c1; font-weight: 400; }
+      .panel-heading { font-size: 30px; font-weight: 750; fill: #ffffff; }
+      .party-title { font-size: 25px; font-weight: 800; }
+      .set-text { font-size: 21px; font-weight: 750; letter-spacing: 0; }
+      .small-note { font-size: 15px; fill: #bdc9c1; }
+      .step-number { font-size: 40px; font-weight: 850; }
+      .center-caption { font-size: 31px; font-weight: 780; fill: #ffffff; }
+      .result-title { font-size: 36px; font-weight: 820; fill:#00d978; }
+      .result-set { font-size: 68px; font-weight: 850; fill:#00ff99; letter-spacing: 0; }
+      .result-set-long { font-size: 50px; font-weight: 850; fill:#00ff99; letter-spacing: 0; }
+      .result-number { font-size: 96px; font-weight: 900; fill:#00ff99; }
+      .result-note { font-size: 24px; font-weight: 620; fill:#dce5df; }
+      .bottom-key { font-size: 28px; font-weight: 800; fill:#00ff99; }
+      .bottom-text { font-size: 26px; font-weight: 500; fill:#dce5df; }
+    ]]></style>
+  </defs>
+
+  <rect width="1440" height="960" fill="url(#bgGrad)"/>
+  <rect width="1440" height="960" fill="url(#grid)" opacity="0.45"/>
+  <rect width="1440" height="960" fill="url(#haloCyan)"/>
+  <rect width="1440" height="960" fill="url(#haloGreen)"/>
+
+  <g opacity="0.82">
+    <path d="M76 92 H154 L176 112 H318" fill="none" stroke="#2563eb" stroke-width="1.3" opacity="0.72"/>
+    <circle cx="320" cy="112" r="3.5" fill="#00ff99"/>
+    <path d="M1364 92 H1286 L1264 112 H1122" fill="none" stroke="#2563eb" stroke-width="1.3" opacity="0.72"/>
+    <circle cx="1120" cy="112" r="3.5" fill="#00ff99"/>
+  </g>
+
+  <text x="720" y="92" text-anchor="middle" class="title"><tspan>隐私标识对齐</tspan><tspan class="title-accent"> Private-ID</tspan></text>
+  <text x="720" y="148" text-anchor="middle" class="subtitle">在不公开原始标识的情况下，为相同对象生成统一隐私标识</text>
+
+  
+    <g>
+      <circle cx="266" cy="233" r="32" fill="#0d1511" stroke="#2563eb" stroke-width="2.2"/>
+      <circle cx="266" cy="233" r="24" fill="none" stroke="#2563eb" stroke-width="1" opacity="0.65"/>
+      <text x="266" y="245" text-anchor="middle" class="step-number" fill="#2563eb">1</text>
+    </g>
+  
+    <g>
+      <circle cx="720" cy="233" r="32" fill="#0d1511" stroke="#2563eb" stroke-width="2.2"/>
+      <circle cx="720" cy="233" r="24" fill="none" stroke="#2563eb" stroke-width="1" opacity="0.65"/>
+      <text x="720" y="245" text-anchor="middle" class="step-number" fill="#2563eb">2</text>
+    </g>
+  
+    <g>
+      <circle cx="1174" cy="233" r="32" fill="#0d1511" stroke="#00ff99" stroke-width="2.2"/>
+      <circle cx="1174" cy="233" r="24" fill="none" stroke="#00ff99" stroke-width="1" opacity="0.65"/>
+      <text x="1174" y="245" text-anchor="middle" class="step-number" fill="#00ff99">3</text>
+    </g>
+
+  <g>
+    <rect x="56" y="235" width="420" height="515" rx="26" fill="url(#panelGrad)" stroke="#00ff99" stroke-width="1.5"/>
+    <text x="266" y="311" text-anchor="middle" class="panel-heading">各方持有原始标识</text>
+    
+    <g>
+      <rect x="84" y="347" width="364" height="108" rx="18" fill="#0d1511" stroke="#2563eb" stroke-width="1.5" opacity="0.98"/>
+      
+    <g transform="translate(108,365) scale(0.78)">
+      <path d="M10 72 L10 24 L45 8 L80 24 L80 72 Z" fill="url(#bldgGrad)" stroke="#2563eb" stroke-width="2"/>
+      <path d="M45 8 L45 72" stroke="#2563eb" stroke-width="1.4" opacity="0.55"/>
+      <rect x="20" y="28" width="9" height="12" rx="1.5" fill="#2563eb" opacity="0.88"/>
+      <rect x="34" y="24" width="9" height="12" rx="1.5" fill="#2563eb" opacity="0.75"/>
+      <rect x="54" y="28" width="9" height="12" rx="1.5" fill="#2563eb" opacity="0.88"/>
+      <rect x="66" y="34" width="9" height="12" rx="1.5" fill="#2563eb" opacity="0.70"/>
+      <rect x="20" y="48" width="9" height="12" rx="1.5" fill="#2563eb" opacity="0.72"/>
+      <rect x="34" y="44" width="9" height="12" rx="1.5" fill="#2563eb" opacity="0.88"/>
+      <rect x="54" y="48" width="9" height="12" rx="1.5" fill="#2563eb" opacity="0.72"/>
+      <rect x="66" y="54" width="9" height="12" rx="1.5" fill="#2563eb" opacity="0.88"/>
+      <path d="M2 72 H88" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/>
+      <ellipse cx="2" cy="63" rx="7" ry="16" fill="#2563eb" opacity="0.55"/>
+      <path d="M2 72 V58" stroke="#2563eb" stroke-width="2" opacity="0.75"/>
+    </g>
+      <text x="294" y="384" text-anchor="middle" class="party-title" fill="#2563eb">参与方 A</text>
+      <rect x="261" y="397" width="154" height="34" rx="8" fill="#070b08" stroke="#2563eb" stroke-width="1.2" opacity="0.92"/>
+      <text x="338" y="421" text-anchor="middle" class="set-text" fill="#2563eb">{A-17, A-42}</text>
+      
+    <g transform="translate(262,435) scale(0.86)" class="icon-lock">
+      <path d="M4 8V5.6C4 2.9 5.8 1 8 1s4 1.9 4 4.6V8" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/>
+      <rect x="2.5" y="7" width="11" height="9" rx="2" fill="#2563eb" opacity="0.92"/>
+      <circle cx="8" cy="11" r="1.2" fill="#0d1511"/>
+    </g>
+      <text x="286" y="449" class="small-note">原始标识留在本地</text>
+    </g>
+    <g>
+      <rect x="84" y="472" width="364" height="108" rx="18" fill="#0d1511" stroke="#00d978" stroke-width="1.5" opacity="0.98"/>
+      
+    <g transform="translate(108,490) scale(0.78)">
+      <path d="M10 72 L10 24 L45 8 L80 24 L80 72 Z" fill="url(#bldgGrad)" stroke="#00d978" stroke-width="2"/>
+      <path d="M45 8 L45 72" stroke="#00d978" stroke-width="1.4" opacity="0.55"/>
+      <rect x="20" y="28" width="9" height="12" rx="1.5" fill="#00d978" opacity="0.88"/>
+      <rect x="34" y="24" width="9" height="12" rx="1.5" fill="#00d978" opacity="0.75"/>
+      <rect x="54" y="28" width="9" height="12" rx="1.5" fill="#00d978" opacity="0.88"/>
+      <rect x="66" y="34" width="9" height="12" rx="1.5" fill="#00d978" opacity="0.70"/>
+      <rect x="20" y="48" width="9" height="12" rx="1.5" fill="#00d978" opacity="0.72"/>
+      <rect x="34" y="44" width="9" height="12" rx="1.5" fill="#00d978" opacity="0.88"/>
+      <rect x="54" y="48" width="9" height="12" rx="1.5" fill="#00d978" opacity="0.72"/>
+      <rect x="66" y="54" width="9" height="12" rx="1.5" fill="#00d978" opacity="0.88"/>
+      <path d="M2 72 H88" stroke="#00d978" stroke-width="2" stroke-linecap="round"/>
+      <ellipse cx="2" cy="63" rx="7" ry="16" fill="#00d978" opacity="0.55"/>
+      <path d="M2 72 V58" stroke="#00d978" stroke-width="2" opacity="0.75"/>
+    </g>
+      <text x="294" y="509" text-anchor="middle" class="party-title" fill="#00d978">参与方 B</text>
+      <rect x="261" y="522" width="154" height="34" rx="8" fill="#070b08" stroke="#00d978" stroke-width="1.2" opacity="0.92"/>
+      <text x="338" y="546" text-anchor="middle" class="set-text" fill="#00d978">{B-08, B-61}</text>
+      
+    <g transform="translate(262,560) scale(0.86)" class="icon-lock">
+      <path d="M4 8V5.6C4 2.9 5.8 1 8 1s4 1.9 4 4.6V8" fill="none" stroke="#00d978" stroke-width="2" stroke-linecap="round"/>
+      <rect x="2.5" y="7" width="11" height="9" rx="2" fill="#00d978" opacity="0.92"/>
+      <circle cx="8" cy="11" r="1.2" fill="#0d1511"/>
+    </g>
+      <text x="286" y="574" class="small-note">原始标识留在本地</text>
+    </g>
+    <g>
+      <rect x="84" y="597" width="364" height="108" rx="18" fill="#0d1511" stroke="#0ea5e9" stroke-width="1.5" opacity="0.98"/>
+      
+    <g transform="translate(108,615) scale(0.78)">
+      <path d="M10 72 L10 24 L45 8 L80 24 L80 72 Z" fill="url(#bldgGrad)" stroke="#0ea5e9" stroke-width="2"/>
+      <path d="M45 8 L45 72" stroke="#0ea5e9" stroke-width="1.4" opacity="0.55"/>
+      <rect x="20" y="28" width="9" height="12" rx="1.5" fill="#0ea5e9" opacity="0.88"/>
+      <rect x="34" y="24" width="9" height="12" rx="1.5" fill="#0ea5e9" opacity="0.75"/>
+      <rect x="54" y="28" width="9" height="12" rx="1.5" fill="#0ea5e9" opacity="0.88"/>
+      <rect x="66" y="34" width="9" height="12" rx="1.5" fill="#0ea5e9" opacity="0.70"/>
+      <rect x="20" y="48" width="9" height="12" rx="1.5" fill="#0ea5e9" opacity="0.72"/>
+      <rect x="34" y="44" width="9" height="12" rx="1.5" fill="#0ea5e9" opacity="0.88"/>
+      <rect x="54" y="48" width="9" height="12" rx="1.5" fill="#0ea5e9" opacity="0.72"/>
+      <rect x="66" y="54" width="9" height="12" rx="1.5" fill="#0ea5e9" opacity="0.88"/>
+      <path d="M2 72 H88" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round"/>
+      <ellipse cx="2" cy="63" rx="7" ry="16" fill="#0ea5e9" opacity="0.55"/>
+      <path d="M2 72 V58" stroke="#0ea5e9" stroke-width="2" opacity="0.75"/>
+    </g>
+      <text x="294" y="634" text-anchor="middle" class="party-title" fill="#0ea5e9">参与方 C</text>
+      <rect x="261" y="647" width="154" height="34" rx="8" fill="#070b08" stroke="#0ea5e9" stroke-width="1.2" opacity="0.92"/>
+      <text x="338" y="671" text-anchor="middle" class="set-text" fill="#0ea5e9">{C-33, C-90}</text>
+      
+    <g transform="translate(262,685) scale(0.86)" class="icon-lock">
+      <path d="M4 8V5.6C4 2.9 5.8 1 8 1s4 1.9 4 4.6V8" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round"/>
+      <rect x="2.5" y="7" width="11" height="9" rx="2" fill="#0ea5e9" opacity="0.92"/>
+      <circle cx="8" cy="11" r="1.2" fill="#0d1511"/>
+    </g>
+      <text x="286" y="699" class="small-note">原始标识留在本地</text>
+    </g>
+    <rect x="80" y="679" width="372" height="48" fill="url(#dotGrid)" opacity="0.55"/>
+  </g>
+
+  
+    <g opacity="0.95">
+      <path d="M470 497 H520" stroke="url(#arrowGrad)" stroke-width="10" stroke-linecap="round"/>
+      <path d="M518 477 L554 497 L518 517 Z" fill="url(#arrowGrad)"/>
+    </g>
+
+  <g>
+    <rect x="510" y="235" width="420" height="515" rx="26" fill="url(#panelGrad)" stroke="#00ff99" stroke-width="1.5"/>
+    <text x="720" y="311" text-anchor="middle" class="panel-heading">隐私匹配与映射</text>
+    <g opacity="0.35">
+      <path d="M830 334 V560" stroke="#00ff99" stroke-width="1" stroke-dasharray="2 12"/>
+      <path d="M614 360 V552" stroke="#00ff99" stroke-width="1" stroke-dasharray="2 12"/>
+      <path d="M805 330 l32 18 v36 l-32 18 l-32-18 v-36 z" fill="none" stroke="#2563eb"/>
+      <path d="M835 406 l28 16 v32 l-28 16 l-28-16 v-32 z" fill="none" stroke="#2563eb" opacity="0.8"/>
+    </g>
+    
+    <g>
+      <ellipse cx="720" cy="577" rx="142" ry="34" fill="none" stroke="#00ff99" stroke-width="1.1" opacity="0.50"/>
+      <ellipse cx="720" cy="577" rx="105" ry="22" fill="none" stroke="#00ff99" stroke-width="0.9" opacity="0.35"/>
+      <path d="M640 530 L720 491 L800 530 L790 593 L650 593 Z" fill="#1e3154" stroke="#2563eb" stroke-width="2"/>
+      <rect x="642" y="531" width="156" height="72" rx="16" fill="url(#deviceGrad)" stroke="#2563eb" stroke-width="1.8"/>
+      <path d="M660 555 H708" stroke="#3b82f6" stroke-width="2" opacity="0.65"/>
+      <path d="M660 571 H694" stroke="#3b82f6" stroke-width="1.7" opacity="0.45"/>
+      <circle cx="756" cy="564" r="4" fill="#2563eb"/>
+      <circle cx="776" cy="564" r="4" fill="#00d978"/>
+      <circle cx="796" cy="564" r="4" fill="#0ea5e9" opacity="0.8"/>
+    </g>
+    <g>
+      <path d="M720 365 C678 393 638 403 638 403 V460 C638 518 682 550 720 567 C758 550 802 518 802 460 V403 C802 403 762 393 720 365 Z" fill="url(#shieldGrad)" stroke="#2563eb" stroke-width="2.6"/>
+      <path d="M720 383 C688 403 662 411 662 411 V458 C662 499 690 525 720 541 C750 525 778 499 778 458 V411 C778 411 752 403 720 383 Z" fill="none" stroke="#60a5fa" stroke-width="1.2" opacity="0.75"/>
+      <path d="M691 467 V441 C691 413 708 396 720 396 C732 396 749 413 749 441 V467" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+      <rect x="678" y="457" width="84" height="66" rx="12" fill="url(#lockGrad)"/>
+      <circle cx="720" cy="489" r="8" fill="#1e3a5f"/>
+      <path d="M720 495 V508" stroke="#1e3a5f" stroke-width="5" stroke-linecap="round"/>
+    </g>
+    <text x="720" y="686" text-anchor="middle" class="center-caption">不公开原始标识</text>
+  </g>
+
+  
+    <g opacity="0.95">
+      <path d="M924 497 H974" stroke="url(#arrowGrad)" stroke-width="10" stroke-linecap="round"/>
+      <path d="M972 477 L1008 497 L972 517 Z" fill="url(#arrowGrad)"/>
+    </g>
+
+  <g>
+    <rect x="964" y="235" width="420" height="515" rx="26" fill="url(#resultGrad)" stroke="#00ff99" stroke-width="1.5"/>
+    <text x="1174" y="311" text-anchor="middle" class="panel-heading">生成统一标识</text>
+    <rect x="1011" y="389" width="326" height="335" rx="24" fill="#0d1511" stroke="#00ff99" stroke-width="1.5"/>
+    <text x="1174" y="465" text-anchor="middle" class="result-title">匹配记录</text>
+    <rect x="1041" y="514" width="266" height="122" rx="18" fill="#11241a" stroke="#00ff99" stroke-width="1" opacity="0.92"/>
+    <text x="1174" y="597" text-anchor="middle" class="result-set-long">PID-7F3A</text>
+    <path d="M1060 665 H1290" stroke="#00ff99" stroke-dasharray="4 6" opacity="0.4"/>
+    <circle cx="1069" cy="697" r="25" fill="#14351f" stroke="#00ff99" stroke-width="2"/>
+    <path d="M1057 696 L1067 706 L1085 684" fill="none" stroke="#00ff99" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="1114" y="707" class="result-note">相同对象使用同一 ID</text>
+    <rect x="1014" y="690" width="320" height="46" fill="url(#dotGrid)" opacity="0.45"/>
+  </g>
+
+  <g>
+    <rect x="64" y="795" width="1312" height="112" rx="22" fill="#0d1511" stroke="#294c3c" stroke-width="1.3" opacity="0.95"/>
+    <g transform="translate(110,823)">
+      <path d="M38 56 V70 H78 V56" fill="none" stroke="#00ff99" stroke-width="3" stroke-linecap="round"/>
+      <path d="M58 8 C36 8 21 24 21 44 C21 57 30 65 38 72 H78 C86 65 95 57 95 44 C95 24 80 8 58 8 Z" fill="none" stroke="#00ff99" stroke-width="3"/>
+      <path d="M47 44 C47 36 57 36 57 44 C57 52 47 52 47 44 Z M59 44 C59 36 69 36 69 44 C69 52 59 52 59 44 Z" fill="none" stroke="#00ff99" stroke-width="2"/>
+      <path d="M58 0 V-12 M21 14 L11 3 M95 14 L105 3" stroke="#00ff99" stroke-width="2.4" stroke-linecap="round"/>
+    </g>
+    <path d="M224 816 V886" stroke="#294c3c" stroke-width="1" opacity="0.35"/>
+    <text x="260" y="860"><tspan class="bottom-key">功能说明：</tspan><tspan class="bottom-text"> 各方无需公开原始标识，也能为匹配记录生成统一隐私标识。</tspan></text>
+  </g>
+  <g id="step-marker-overlay" aria-hidden="true">
+    <g>
+      <circle cx="266" cy="233" r="32" fill="#0d1511" stroke="#2563eb" stroke-width="2.2"/>
+      <circle cx="266" cy="233" r="24" fill="none" stroke="#2563eb" stroke-width="1" opacity="0.65"/>
+      <text x="266" y="245" text-anchor="middle" class="step-number" fill="#2563eb">1</text>
+    </g>
+    <g>
+      <circle cx="720" cy="233" r="32" fill="#0d1511" stroke="#2563eb" stroke-width="2.2"/>
+      <circle cx="720" cy="233" r="24" fill="none" stroke="#2563eb" stroke-width="1" opacity="0.65"/>
+      <text x="720" y="245" text-anchor="middle" class="step-number" fill="#2563eb">2</text>
+    </g>
+    <g>
+      <circle cx="1174" cy="233" r="32" fill="#0d1511" stroke="#00ff99" stroke-width="2.2"/>
+      <circle cx="1174" cy="233" r="24" fill="none" stroke="#00ff99" stroke-width="1" opacity="0.65"/>
+      <text x="1174" y="245" text-anchor="middle" class="step-number" fill="#00ff99">3</text>
+    </g>
+  </g>
+</svg>

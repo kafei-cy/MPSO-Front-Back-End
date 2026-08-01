@@ -1,0 +1,25 @@
+# Historical reference copy
+/MPSO-Front-End-original/
+
+# MPSO third-party sources and local build products
+/MPSO/volepsi/
+/MPSO/libvolepsi/
+/MPSO/build/
+
+# Front-end dependencies, build output, and local secrets
+/MPSO-Front-End/node_modules/
+/MPSO-Front-End/.next/
+/MPSO-Front-End/.env.local
+/MPSO-Front-End/.env.*.local
+
+# Runtime files
+*.log
+*.pid
+*.pid.lock
+/logs/
+/pids/
+
+# Editor and operating-system files
+.DS_Store
+.idea/
+.vscode/
