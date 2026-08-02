@@ -5,10 +5,27 @@ set -Eeuo pipefail
 readonly ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly MPSO_DIR="${ROOT_DIR}/MPSO"
 readonly FRONTEND_DIR="${ROOT_DIR}/MPSO-Front-End"
+readonly TAIHANG_DIR="${ROOT_DIR}/Taihang"
+readonly TAIHANG_CORE_DIR="${TAIHANG_DIR}/taihang"
+readonly TAIHANG_PROTOCOLS_DIR="${TAIHANG_DIR}/taihang-protocols"
+readonly TAIHANG_ADAPTER_DIR="${TAIHANG_DIR}/adapter"
+readonly TAIHANG_ADAPTER_BUILD_DIR="${TAIHANG_ADAPTER_DIR}/build"
+readonly TAIHANG_PROTOCOLS_BUILD_DIR="${TAIHANG_PROTOCOLS_DIR}/build"
+readonly TAIHANG_CORE_REVISION="547b053d431aeefed9e3630644e5601e54dd047a"
+readonly TAIHANG_PROTOCOLS_REVISION="33f0d6d783c33511d5bc6b83c5261adc0fab730c"
+readonly TAIHANG_DEPS_DIR="${TAIHANG_DIR}/.deps"
+readonly TAIHANG_LOCAL_DIR="${TAIHANG_DIR}/.local"
+readonly OPENSSL_SOURCE_DIR="${TAIHANG_DEPS_DIR}/src/openssl-3.0.2"
+readonly OPENSSL_INSTALL_DIR="${TAIHANG_LOCAL_DIR}/openssl-taihang"
+readonly XXHASH_SOURCE_DIR="${TAIHANG_DEPS_DIR}/src/xxHash"
+readonly XXHASH_INSTALL_DIR="${TAIHANG_LOCAL_DIR}/xxhash"
+readonly XXHASH_REVISION="e573d4d2aaeaba0f3e5a0a9a54144a1f2b4b56e7"
+readonly XXHASH_STAMP_VALUE="${XXHASH_REVISION}-static"
 readonly VOLEPSI_DIR="${MPSO_DIR}/volepsi"
 readonly VOLEPSI_INSTALL_DIR="${MPSO_DIR}/libvolepsi"
 readonly VOLEPSI_REVISION="ec76012ed516e25d3f460af9b8680e1140a5d491"
 readonly ENV_FILE="${FRONTEND_DIR}/.env.local"
+readonly VERIFY_SCRIPT="${ROOT_DIR}/verify-platform.sh"
 
 HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-4173}"
@@ -65,8 +82,8 @@ usage() {
 Usage: ./build.sh
 
 On the first run, this script installs system dependencies, configures PostgreSQL,
-builds MPSO and Next.js, runs a real back-end smoke test, and keeps the production
-service running in the foreground.
+builds MPSO, Taihang PSO, and Next.js, verifies both back-end paths, and keeps the
+production service running in the foreground.
 
 Optional environment variables:
   HOST              Listen address. Default: 0.0.0.0
@@ -90,6 +107,8 @@ fi
 [[ -d "$MPSO_DIR" ]] || die "Directory not found: ${MPSO_DIR}"
 [[ -f "${MPSO_DIR}/CMakeLists.txt" ]] || die "MPSO/CMakeLists.txt was not found"
 [[ -f "${FRONTEND_DIR}/package-lock.json" ]] || die "The front-end package-lock.json was not found"
+[[ -d "$TAIHANG_ADAPTER_DIR" ]] || die "Taihang adapter source was not found: ${TAIHANG_ADAPTER_DIR}"
+[[ -f "$VERIFY_SCRIPT" ]] || die "Platform verification script was not found: ${VERIFY_SCRIPT}"
 
 if [[ ! "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1 || PORT > 65535 )); then
   die "PORT must be an integer between 1 and 65535"
@@ -139,10 +158,17 @@ log "Installing Ubuntu system dependencies"
 if ! "${SUDO[@]}" apt-get update; then
   die "Unable to update Ubuntu package sources; check the network connection and repository configuration"
 fi
+"${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common
+if ! apt-cache show gcc-13 >/dev/null 2>&1; then
+  log "Enabling the Ubuntu toolchain repository for GCC 13"
+  "${SUDO[@]}" add-apt-repository -y ppa:ubuntu-toolchain-r/test
+  "${SUDO[@]}" apt-get update
+fi
 "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y \
-  build-essential gcc-11 g++-11 git make cmake python3 \
-  libssl-dev libomp-dev libtool pkg-config ca-certificates curl gnupg openssl \
-  postgresql postgresql-client iproute2
+  build-essential gcc-11 g++-11 gcc-13 g++-13 git make cmake ninja-build python3 \
+  libssl-dev libomp-dev libtool libgtest-dev pkg-config ca-certificates curl gnupg \
+  openssl perl gzip tar hostname postgresql postgresql-client iproute2 procps util-linux \
+  software-properties-common
 
 node_is_supported() {
   command -v node >/dev/null 2>&1 || return 1
@@ -247,6 +273,7 @@ touch "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 upsert_env_value DATABASE_URL "$DATABASE_URL"
 upsert_env_value MPSO_BUILD_DIR "${MPSO_DIR}/build"
+upsert_env_value TAIHANG_PSO_ADAPTER "${TAIHANG_ADAPTER_BUILD_DIR}/taihang_pso_adapter"
 upsert_env_value MPSO_JOB_TIMEOUT_MS "1800000"
 upsert_env_value MPSO_TEST_MEMORY_GIB "64"
 chmod 600 "$ENV_FILE"
@@ -301,6 +328,103 @@ for executable in test_mpsi test_mpsic test_mpsics test_mpsu; do
   [[ -x "${MPSO_DIR}/build/${executable}" ]] || die "Missing back-end executable: ${executable}"
 done
 
+clone_pinned_repository() {
+  local repository="$1"
+  local directory="$2"
+  local revision="$3"
+  if [[ ! -d "${directory}/.git" ]]; then
+    [[ ! -e "$directory" ]] || die "${directory} exists but is not a Git repository"
+    git clone "$repository" "$directory"
+  fi
+  if ! git -C "$directory" cat-file -e "${revision}^{commit}" 2>/dev/null; then
+    git -C "$directory" fetch origin "$revision"
+  fi
+  git -C "$directory" checkout --detach "$revision"
+}
+
+log "Preparing the pinned Taihang repositories"
+mkdir -p "${TAIHANG_DEPS_DIR}/src" "${TAIHANG_LOCAL_DIR}"
+clone_pinned_repository \
+  https://github.com/RWC-Lab/taihang.git \
+  "$TAIHANG_CORE_DIR" \
+  "$TAIHANG_CORE_REVISION"
+clone_pinned_repository \
+  https://github.com/RWC-Lab/taihang-protocols.git \
+  "$TAIHANG_PROTOCOLS_DIR" \
+  "$TAIHANG_PROTOCOLS_REVISION"
+
+OPENSSL_STAMP="${OPENSSL_INSTALL_DIR}/.taihang-openssl-revision"
+if [[ ! -f "$OPENSSL_STAMP" ]] ||
+   [[ "$(<"$OPENSSL_STAMP")" != "3.0.2-x25519-export" ]] ||
+   [[ ! -f "${OPENSSL_INSTALL_DIR}/lib/libcrypto.a" ]] ||
+   [[ ! -f "${OPENSSL_INSTALL_DIR}/include/openssl/opensslv.h" ]]; then
+  log "Building the patched OpenSSL 3.0.2 dependency"
+  OPENSSL_ARCHIVE="${TAIHANG_DEPS_DIR}/src/openssl-3.0.2.tar.gz"
+  if [[ ! -f "$OPENSSL_ARCHIVE" ]]; then
+    curl -fsSL https://www.openssl.org/source/openssl-3.0.2.tar.gz -o "$OPENSSL_ARCHIVE"
+  fi
+  if [[ ! -f "${OPENSSL_SOURCE_DIR}/Configure" ]]; then
+    tar -xzf "$OPENSSL_ARCHIVE" -C "${TAIHANG_DEPS_DIR}/src"
+  fi
+  sed -i 's/^static void x25519_scalar_mulx/void x25519_scalar_mulx/' \
+    "${OPENSSL_SOURCE_DIR}/crypto/ec/curve25519.c"
+  (
+    cd "$OPENSSL_SOURCE_DIR"
+    make clean >/dev/null 2>&1 || true
+    CC=gcc-13 ./Configure --prefix="$OPENSSL_INSTALL_DIR" no-shared no-tests
+    make -j"$BUILD_JOBS"
+    make install_sw
+  )
+  printf '%s\n' '3.0.2-x25519-export' >"$OPENSSL_STAMP"
+else
+  log "Reusing the patched OpenSSL 3.0.2 dependency"
+fi
+
+XXHASH_STAMP="${XXHASH_INSTALL_DIR}/.taihang-xxhash-revision"
+if [[ ! -f "$XXHASH_STAMP" ]] ||
+   [[ "$(<"$XXHASH_STAMP")" != "$XXHASH_STAMP_VALUE" ]] ||
+   [[ ! -f "${XXHASH_INSTALL_DIR}/lib/libxxhash.a" ]] ||
+   [[ ! -f "${XXHASH_INSTALL_DIR}/lib/cmake/xxHash/xxHashConfig.cmake" ]]; then
+  log "Building the pinned xxHash dependency"
+  clone_pinned_repository \
+    https://github.com/Cyan4973/xxHash.git \
+    "$XXHASH_SOURCE_DIR" \
+    "$XXHASH_REVISION"
+  rm -rf -- "${TAIHANG_DEPS_DIR}/build/xxHash"
+  cmake -S "${XXHASH_SOURCE_DIR}/build/cmake" \
+    -B "${TAIHANG_DEPS_DIR}/build/xxHash" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_C_COMPILER=gcc-13 \
+    -DCMAKE_INSTALL_PREFIX="$XXHASH_INSTALL_DIR" \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DXXHASH_BUILD_XXHSUM=OFF
+  cmake --build "${TAIHANG_DEPS_DIR}/build/xxHash" --parallel "$BUILD_JOBS"
+  cmake --install "${TAIHANG_DEPS_DIR}/build/xxHash"
+  printf '%s\n' "$XXHASH_STAMP_VALUE" >"$XXHASH_STAMP"
+else
+  log "Reusing the pinned xxHash dependency"
+fi
+
+log "Building the Taihang PSO protocol in the default build mode"
+rm -rf -- "$TAIHANG_PROTOCOLS_BUILD_DIR"
+cmake -S "$TAIHANG_PROTOCOLS_DIR" -B "$TAIHANG_PROTOCOLS_BUILD_DIR" \
+  -DCMAKE_C_COMPILER=gcc-13 \
+  -DCMAKE_CXX_COMPILER=g++-13 \
+  -DTAIHANG_BUILD_TESTS=OFF \
+  -DTAIHANG_BUILD_BENCHMARKS=OFF \
+  -DOPENSSL_ROOT_DIR="$OPENSSL_INSTALL_DIR" \
+  -DxxHash_DIR="${XXHASH_INSTALL_DIR}/lib/cmake/xxHash"
+cmake --build "$TAIHANG_PROTOCOLS_BUILD_DIR" --target taihang_protocols --parallel "$BUILD_JOBS"
+
+log "Building the Taihang PSO adapter"
+cmake -S "$TAIHANG_ADAPTER_DIR" -B "$TAIHANG_ADAPTER_BUILD_DIR" \
+  -DCMAKE_CXX_COMPILER=g++-13 \
+  -DTAIHANG_PROTOCOLS_BUILD_DIR="$TAIHANG_PROTOCOLS_BUILD_DIR" \
+  -DOPENSSL_ROOT_DIR="$OPENSSL_INSTALL_DIR" \
+  -DxxHash_DIR="${XXHASH_INSTALL_DIR}/lib/cmake/xxHash"
+cmake --build "$TAIHANG_ADAPTER_BUILD_DIR" --parallel "$BUILD_JOBS"
+[[ -x "${TAIHANG_ADAPTER_BUILD_DIR}/taihang_pso_adapter" ]] || die "Missing Taihang PSO adapter"
+
 log "Installing front-end dependencies and creating the production build"
 (
   cd "$FRONTEND_DIR"
@@ -338,47 +462,10 @@ HEALTH_RESPONSE="$HEALTH_RESPONSE" node -e '
   if (response.status !== "ok") process.exit(1)
 ' || die "The back-end health check failed"
 
-log "Running a real three-party MPSI smoke test with a 2^12 data set"
-BASE_URL="http://127.0.0.1:${PORT}" node <<'NODE'
-const baseUrl = process.env.BASE_URL
-const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
-
-const createResponse = await fetch(`${baseUrl}/api/runs`, {
-  method: 'POST',
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({
-    protocol: '\u9690\u79c1\u96c6\u5408\u6c42\u4ea4\u96c6',
-    parties: 3,
-    dataset: '12',
-    threads: 4,
-  }),
-})
-const created = await createResponse.json()
-if (!createResponse.ok || !created.id) {
-  throw new Error(`Unable to create the smoke test: ${JSON.stringify(created)}`)
-}
-
-for (let attempt = 0; attempt < 600; attempt += 1) {
-  const statusResponse = await fetch(`${baseUrl}/api/runs/${created.id}`, { cache: 'no-store' })
-  const run = await statusResponse.json()
-  if (!statusResponse.ok) throw new Error(`Unable to read the smoke test: ${JSON.stringify(run)}`)
-  if (run.status === 'failed') throw new Error(`Smoke test failed: ${run.error ?? 'unknown error'}`)
-  if (run.status === 'completed') {
-    const sample = run.samples?.[0]
-    if (!sample?.resultValue?.verified) throw new Error('The smoke-test result did not match the expected value')
-    if (!(sample.oursOnlineMs > 0)) throw new Error('The smoke test did not record online execution time')
-    if (!(sample.oursCommMiB > 0)) throw new Error('The smoke test did not record online communication')
-    if (!(sample.preparationMs > 0)) throw new Error('The smoke test did not record offline preparation time')
-    console.log(`Smoke test passed: run ${run.id}`)
-    console.log(`Online time: ${sample.oursOnlineMs.toFixed(3)} ms`)
-    console.log(`Online communication: ${sample.oursCommMiB.toFixed(3)} MiB`)
-    process.exit(0)
-  }
-  await sleep(500)
-}
-
-throw new Error('Timed out while waiting for the smoke test')
-NODE
+log "Running full platform verification"
+BASE_URL="http://127.0.0.1:${PORT}" \
+  REQUEST_TIMEOUT_SECONDS=1800 \
+  bash "$VERIFY_SCRIPT"
 
 LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 log "Deployment completed"

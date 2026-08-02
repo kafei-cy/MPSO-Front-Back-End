@@ -6,6 +6,13 @@
 /MPSO/libvolepsi/
 /MPSO/build/
 
+# Taihang upstream repositories, dependencies, and build products
+/Taihang/taihang/
+/Taihang/taihang-protocols/
+/Taihang/.deps/
+/Taihang/.local/
+/Taihang/adapter/build/
+
 # Front-end dependencies, build output, and local secrets
 /MPSO-Front-End/node_modules/
 /MPSO-Front-End/.next/

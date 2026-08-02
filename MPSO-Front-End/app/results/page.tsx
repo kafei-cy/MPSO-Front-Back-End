@@ -59,7 +59,7 @@ function valueSummary(values: Array<number | null>, formatter: (value: number) =
   return `${formatter(Math.min(...available))} - ${formatter(Math.max(...available))}`
 }
 
-function liveOutput(protocol: string, samples: MpsoRunSample[]) {
+function liveOutput(protocol: string, samples: MpsoRunSample[], parties: number) {
   const values = samples.map((sample) => {
     const key = sample.resultType === 'intersection-sum' ? 'sum' : 'count'
     return Number(sample.resultValue[key] ?? 0)
@@ -69,15 +69,15 @@ function liveOutput(protocol: string, samples: MpsoRunSample[]) {
     : `${Math.min(...values).toLocaleString()} - ${Math.max(...values).toLocaleString()}`
 
   if (protocol === '隐私集合求并集') {
-    return { primary: `${value} 个并集元素`, subtitle: 'MPSO 后端真实运行结果' }
+    return { primary: `${value} 个并集元素`, subtitle: `${parties === 2 ? 'Taihang PSO' : 'MPSO'} 后端真实运行结果` }
   }
   if (protocol === '隐私集合求交集数量') {
-    return { primary: value, subtitle: 'MPSO 后端返回的真实交集数量' }
+    return { primary: value, subtitle: `${parties === 2 ? 'Taihang PSO' : 'MPSO'} 后端返回的真实交集数量` }
   }
   if (protocol === '隐私集合求交集的和') {
-    return { primary: value, subtitle: 'MPSO 后端返回的真实求和值' }
+    return { primary: value, subtitle: `${parties === 2 ? 'Taihang PSO' : 'MPSO'} 后端返回的真实求和值` }
   }
-  return { primary: `${value} 个共同元素`, subtitle: 'MPSO 后端真实运行结果' }
+  return { primary: `${value} 个共同元素`, subtitle: `${parties === 2 ? 'Taihang PSO' : 'MPSO'} 后端真实运行结果` }
 }
 
 function metricText(value: number | null | undefined, metric: 'time' | 'comm', baselineStatus?: BaselineStatus) {
@@ -119,7 +119,10 @@ function BenchmarkBars({ rows, metric, title }: { rows: BenchmarkRow[]; metric: 
   const values = rows.flatMap((row) => [metricValue(row, metric, 'ours'), metricValue(row, metric, 'baseline')])
   const numericValues = values.filter((value): value is number => value !== null && value !== undefined && Number.isFinite(value))
   const maxValue = Math.max(...numericValues, 1)
-  const subtitle = metric === 'time' ? '越短越好，Ours 与 SOTA 直接对比' : '越低越好，Ours 与 SOTA 直接对比'
+  const hasBaseline = rows.some((row) => metricValue(row, metric, 'baseline') !== null)
+  const subtitle = hasBaseline
+    ? metric === 'time' ? '越短越好，Ours 与 SOTA 直接对比' : '越低越好，Ours 与 SOTA 直接对比'
+    : '本次运行未接入 SOTA，对照列显示 N/A'
 
   return (
       <div className="surface-card group rounded-lg border border-border bg-card p-6 2xl:p-7">
@@ -193,18 +196,20 @@ export default async function Results({ searchParams }: { searchParams?: Results
   const hasComparison = rows.some((row) => row.timeRatio || row.commRatio)
   const hasOom = rows.some((row) => row.baselineStatus === 'oom')
   const hasUnpublishedImplementation = rows.some((row) => row.baselineStatus === 'unpublished')
-  const comparisonSummary = hasOom
-    ? 'SOTA 运行失败（超出内存极限）'
-    : hasComparison
-      ? valueSummary(rows.map((row) => row.timeRatio), (value) => formatRatio(value, '更快', '更慢'))
-      : hasUnpublishedImplementation
-        ? 'SOTA 未公开实现'
-        : 'SOTA 数据缺失'
+  const comparisonSummary = run.parties === 2
+    ? 'N/A'
+    : hasOom
+      ? 'SOTA 运行失败（超出内存极限）'
+      : hasComparison
+        ? valueSummary(rows.map((row) => row.timeRatio), (value) => formatRatio(value, '更快', '更慢'))
+        : hasUnpublishedImplementation
+          ? 'SOTA 未公开实现'
+          : 'SOTA 数据缺失'
   const partyNote = `${run.parties} 方真实运行`
   const datasetNote = run.dataset === 'all'
     ? `${rows.length} 组规模真实运行`
     : `${formatDatasetLabel(run.dataset)} · 真实运行`
-  const output = liveOutput(run.protocol, run.samples)
+  const output = liveOutput(run.protocol, run.samples, run.parties)
   const partyLabel = `${run.parties} 方`
   const runLabel = `${run.protocol} · ${partyLabel} · ${formatDatasetLabel(run.dataset)}`
   const advantage = hasOom ? null : bestAdvantage(rows)
@@ -285,7 +290,9 @@ export default async function Results({ searchParams }: { searchParams?: Results
                       <BarChart3 className="size-6 text-primary" />
                       <h3 className="text-2xl font-semibold text-foreground">在线运行数据</h3>
                     </div>
-                    <p className="mt-2 text-lg text-muted-foreground">本机真实运行结果与既定 SOTA 基准对照</p>
+                    <p className="mt-2 text-lg text-muted-foreground">
+                      {run.parties === 2 ? '本机真实运行结果；两方 SOTA 暂未接入' : '本机真实运行结果与既定 SOTA 基准对照'}
+                    </p>
                   </div>
                   <div className="flex flex-wrap gap-2 text-lg text-muted-foreground">
                     <span className="rounded border border-primary/20 bg-primary/10 px-3 py-1.5">{partyNote}</span>
@@ -361,8 +368,12 @@ export default async function Results({ searchParams }: { searchParams?: Results
                   </table>
                 </div>
                 <p className="mt-4 text-lg leading-8 text-muted-foreground">
-                  Ours 耗时与运算结果来自本次真实运行；SOTA 耗时按既定倍率换算，通信量采用固定基准值。
-                  “数据缺失”表示当前参与方没有可用的公开基准；“未公开实现”表示公开资料未提供可复现代码；“OOM”表示 SOTA 在 64 GiB 测试条件下内存不足。
+                  {run.parties === 2
+                    ? 'Ours 耗时、通信量与运算结果来自 Taihang PSO 的本次真实运行；当前未接入两方 SOTA 对照。'
+                    : 'Ours 耗时与运算结果来自本次真实运行；SOTA 耗时按既定倍率换算，通信量采用固定基准值。'}
+                  {run.parties !== 2
+                    ? '“数据缺失”表示当前参与方没有可用的公开基准；“未公开实现”表示公开资料未提供可复现代码；“OOM”表示 SOTA 在 64 GiB 测试条件下内存不足。'
+                    : null}
                 </p>
               </section>
             </div>

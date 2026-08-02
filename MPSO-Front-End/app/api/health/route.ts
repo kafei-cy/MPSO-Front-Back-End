@@ -1,7 +1,7 @@
 import { arch, cpus, freemem, platform, release, totalmem } from 'node:os'
 import { NextResponse } from 'next/server'
 import { checkMpsoDatabase } from '@/lib/server/mpso-database'
-import { checkMpsoExecutables } from '@/lib/server/mpso-runner'
+import { checkMpsoExecutables, taihangPsoExecutable } from '@/lib/server/mpso-runner'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -21,6 +21,7 @@ export async function GET() {
       status: 'ok',
       database,
       mpsoBuildDirectory: buildDirectory,
+      taihangPsoExecutable: taihangPsoExecutable(),
       machine: {
         cpuModel: cpus()[0]?.model.replace(/\s+/g, ' ').trim() ?? '未知 CPU',
         logicalCores: cpus().length,

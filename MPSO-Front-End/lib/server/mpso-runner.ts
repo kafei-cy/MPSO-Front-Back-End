@@ -24,6 +24,13 @@ const protocolExecutables: Record<string, string> = {
   '隐私集合求交集的和': 'test_mpsics',
 }
 
+const taihangModes: Record<string, string> = {
+  '隐私集合求交集': 'psi',
+  '隐私集合求并集': 'psu',
+  '隐私集合求交集数量': 'psic',
+  '隐私集合求交集的和': 'psics',
+}
+
 const allDatasetPowers = [12, 14, 16, 18, 20]
 const resultMarker = 'MPSO_RESULT_JSON '
 const maxLogLength = 200_000
@@ -48,6 +55,11 @@ type NativeResult = {
   onlineMs: number
 }
 
+type TaihangResult = NativeResult & {
+  preparationMs: number
+  communicationMiB: number
+}
+
 type QueueState = {
   tail: Promise<void>
 }
@@ -67,6 +79,12 @@ export function mpsoBuildDirectory() {
   return process.env.MPSO_BUILD_DIR
     ? path.resolve(process.env.MPSO_BUILD_DIR)
     : path.resolve(process.cwd(), '../MPSO/build')
+}
+
+export function taihangPsoExecutable() {
+  return process.env.TAIHANG_PSO_ADAPTER
+    ? path.resolve(process.env.TAIHANG_PSO_ADAPTER)
+    : path.resolve(process.cwd(), '../Taihang/adapter/build/taihang_pso_adapter')
 }
 
 function jobTimeoutMs() {
@@ -161,6 +179,62 @@ async function runPartyGroup(input: {
   })
 }
 
+async function runTaihangProcess(input: {
+  mode: string
+  power: number
+  threads: number
+}): Promise<PartyOutput[]> {
+  const executablePath = taihangPsoExecutable()
+  await access(executablePath)
+  const port = 19000 + ((process.pid + input.power * 97) % 1000)
+
+  return new Promise((resolve, reject) => {
+    const output: PartyOutput = { role: 0, stdout: '', stderr: '' }
+    let settled = false
+    const child = spawn(executablePath, [
+      '--mode', input.mode,
+      '--power', String(input.power),
+      '--threads', String(input.threads),
+      '--port', String(port),
+    ], {
+      cwd: path.dirname(executablePath),
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+
+    const timeout = setTimeout(() => {
+      if (settled) return
+      settled = true
+      child.kill('SIGTERM')
+      reject(new Error(`Taihang PSO 任务超过 ${Math.round(jobTimeoutMs() / 1000)} 秒，已终止`))
+    }, jobTimeoutMs())
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      output.stdout = appendLimited(output.stdout, chunk)
+    })
+    child.stderr.on('data', (chunk: Buffer) => {
+      output.stderr = appendLimited(output.stderr, chunk)
+    })
+    child.on('error', (error) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      reject(new Error(`无法启动 Taihang PSO 适配器：${error.message}`))
+    })
+    child.on('close', (code, signal) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      if (code !== 0) {
+        const details = output.stderr || output.stdout
+        reject(new Error(`Taihang PSO 适配器异常退出（${code ?? signal}）：${details.slice(-2000)}`))
+        return
+      }
+      resolve([output])
+    })
+  })
+}
+
 function parseNativeResult(outputs: PartyOutput[]) {
   for (const output of outputs) {
     for (const line of output.stdout.split(/\r?\n/)) {
@@ -176,6 +250,29 @@ function parseNativeResult(outputs: PartyOutput[]) {
     }
   }
   throw new Error('MPSO 没有返回机器可读的结果，请检查 C++ 可执行程序是否为最新版本')
+}
+
+function parseTaihangResult(outputs: PartyOutput[]) {
+  for (const output of outputs) {
+    for (const line of output.stdout.split(/\r?\n/)) {
+      if (!line.startsWith('TAIHANG_RESULT_JSON ')) continue
+      const parsed = JSON.parse(line.slice('TAIHANG_RESULT_JSON '.length)) as TaihangResult
+      if (!parsed.success) {
+        throw new Error(`${parsed.protocol} 返回了错误结果`)
+      }
+      if (!Number.isFinite(parsed.onlineMs) || parsed.onlineMs <= 0) {
+        throw new Error(`${parsed.protocol} 没有返回有效的在线耗时`)
+      }
+      if (!Number.isFinite(parsed.preparationMs) || parsed.preparationMs < 0) {
+        throw new Error(`${parsed.protocol} 没有返回有效的离线耗时`)
+      }
+      if (!Number.isFinite(parsed.communicationMiB) || parsed.communicationMiB <= 0) {
+        throw new Error(`${parsed.protocol} 没有返回有效的在线通信量`)
+      }
+      return parsed
+    }
+  }
+  throw new Error('Taihang PSO 没有返回机器可读的结果，请检查适配器是否为最新版本')
 }
 
 function resultValue(nativeResult: NativeResult): Record<string, number | string | boolean> {
@@ -223,6 +320,42 @@ async function executeMpsoRun(runId: string) {
   try {
     await markMpsoRunStarted(runId)
     for (const power of powers) {
+      if (run.parties === 2) {
+        const taihangMode = taihangModes[run.protocol]
+        if (!taihangMode) {
+          await failMpsoRun(runId, `不支持的 Taihang 协议：${run.protocol}`)
+          return
+        }
+
+        // Taihang PSO has no reusable offline phase; the run is online-only.
+        await updateMpsoRunPhase(runId, 'running', power)
+        const taihangOutputs = await runTaihangProcess({
+          mode: taihangMode,
+          power,
+          threads: run.threads,
+        })
+        const taihangResult = parseTaihangResult(taihangOutputs)
+
+        await updateMpsoRunPhase(runId, 'finalizing', power)
+        await insertMpsoRunSample({
+          runId,
+          datasetPower: power,
+          setSize: taihangResult.setSize,
+          resultType: taihangResult.resultType,
+          resultValue: resultValue(taihangResult),
+          oursOnlineMs: taihangResult.onlineMs,
+          sotaMultiplier: null,
+          sotaOnlineMs: null,
+          oursCommMiB: taihangResult.communicationMiB,
+          sotaCommMiB: null,
+          benchmarkParties: null,
+          benchmarkPower: null,
+          preparationMs: taihangResult.preparationMs,
+          rawLog: combinedLog([], taihangOutputs),
+        })
+        continue
+      }
+
       await updateMpsoRunPhase(runId, 'preparing', power)
       const preparationStartedAt = performance.now()
       const prepareOutputs = await runPartyGroup({
@@ -298,5 +431,6 @@ export function enqueueMpsoRun(runId: string) {
 export async function checkMpsoExecutables() {
   const directory = mpsoBuildDirectory()
   await Promise.all(Object.values(protocolExecutables).map((name) => access(path.join(directory, name))))
+  await access(taihangPsoExecutable())
   return directory
 }
