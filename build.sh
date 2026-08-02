@@ -15,8 +15,12 @@ readonly TAIHANG_CORE_REVISION="547b053d431aeefed9e3630644e5601e54dd047a"
 readonly TAIHANG_PROTOCOLS_REVISION="33f0d6d783c33511d5bc6b83c5261adc0fab730c"
 readonly TAIHANG_DEPS_DIR="${TAIHANG_DIR}/.deps"
 readonly TAIHANG_LOCAL_DIR="${TAIHANG_DIR}/.local"
-readonly OPENSSL_SOURCE_DIR="${TAIHANG_DEPS_DIR}/src/openssl-3.0.2"
+readonly OPENSSL_SOURCE_DIR="${TAIHANG_DEPS_DIR}/src/openssl"
 readonly OPENSSL_INSTALL_DIR="${TAIHANG_LOCAL_DIR}/openssl-taihang"
+readonly OPENSSL_VERSION="4.0.1"
+readonly OPENSSL_TAG="openssl-${OPENSSL_VERSION}"
+readonly OPENSSL_REVISION="1e963a8680ec78ad2072792c7a1a71f3c530bd2e"
+readonly OPENSSL_STAMP_VALUE="${OPENSSL_REVISION}-x25519-export"
 readonly XXHASH_SOURCE_DIR="${TAIHANG_DEPS_DIR}/src/xxHash"
 readonly XXHASH_INSTALL_DIR="${TAIHANG_LOCAL_DIR}/xxhash"
 readonly XXHASH_REVISION="e573d4d2aaeaba0f3e5a0a9a54144a1f2b4b56e7"
@@ -342,6 +346,23 @@ clone_pinned_repository() {
   git -C "$directory" checkout --detach "$revision"
 }
 
+clone_pinned_tag_shallow() {
+  local repository="$1"
+  local directory="$2"
+  local tag="$3"
+  local revision="$4"
+  if [[ ! -d "${directory}/.git" ]]; then
+    [[ ! -e "$directory" ]] || die "${directory} exists but is not a Git repository"
+    git clone --depth 1 --branch "$tag" "$repository" "$directory"
+  fi
+  if ! git -C "$directory" cat-file -e "${revision}^{commit}" 2>/dev/null; then
+    git -C "$directory" fetch --depth 1 origin "refs/tags/${tag}:refs/tags/${tag}"
+  fi
+  git -C "$directory" checkout --detach "$revision"
+  [[ "$(git -C "$directory" rev-parse HEAD)" == "$revision" ]] || \
+    die "The ${tag} tag does not resolve to the expected revision"
+}
+
 log "Preparing the pinned Taihang repositories"
 mkdir -p "${TAIHANG_DEPS_DIR}/src" "${TAIHANG_LOCAL_DIR}"
 clone_pinned_repository \
@@ -355,23 +376,21 @@ clone_pinned_repository \
 
 OPENSSL_STAMP="${OPENSSL_INSTALL_DIR}/.taihang-openssl-revision"
 if [[ ! -f "$OPENSSL_STAMP" ]] ||
-   [[ "$(<"$OPENSSL_STAMP")" != "3.0.2-x25519-export" ]] ||
+   [[ "$(<"$OPENSSL_STAMP")" != "$OPENSSL_STAMP_VALUE" ]] ||
    [[ ! -f "${OPENSSL_INSTALL_DIR}/lib/libcrypto.a" ]] ||
    [[ ! -f "${OPENSSL_INSTALL_DIR}/include/openssl/opensslv.h" ]]; then
-  log "Building the patched OpenSSL 3.0.2 dependency"
-  OPENSSL_ARCHIVE="${TAIHANG_DEPS_DIR}/src/openssl-3.0.2.tar.gz"
-  if [[ ! -f "$OPENSSL_ARCHIVE" ]]; then
-    curl -fsSL https://www.openssl.org/source/openssl-3.0.2.tar.gz -o "$OPENSSL_ARCHIVE"
-  fi
-  if [[ ! -f "${OPENSSL_SOURCE_DIR}/Configure" ]]; then
-    tar -xzf "$OPENSSL_ARCHIVE" -C "${TAIHANG_DEPS_DIR}/src"
-  fi
+  log "Building the patched OpenSSL ${OPENSSL_VERSION} dependency"
+  clone_pinned_tag_shallow \
+    https://github.com/openssl/openssl.git \
+    "$OPENSSL_SOURCE_DIR" \
+    "$OPENSSL_TAG" \
+    "$OPENSSL_REVISION"
   OPENSSL_CURVE25519_SOURCE="${OPENSSL_SOURCE_DIR}/crypto/ec/curve25519.c"
   if grep -q '^static void x25519_scalar_mulx' "$OPENSSL_CURVE25519_SOURCE"; then
     sed -i 's/^static void x25519_scalar_mulx/void x25519_scalar_mulx/' \
       "$OPENSSL_CURVE25519_SOURCE"
   elif ! grep -q '^void x25519_scalar_mulx' "$OPENSSL_CURVE25519_SOURCE"; then
-    die "Unable to locate the x25519_scalar_mulx declaration in OpenSSL 3.0.2"
+    die "Unable to locate the x25519_scalar_mulx declaration in OpenSSL ${OPENSSL_VERSION}"
   fi
   (
     cd "$OPENSSL_SOURCE_DIR"
@@ -384,11 +403,14 @@ if [[ ! -f "$OPENSSL_STAMP" ]] ||
     make -j"$BUILD_JOBS"
     make install_sw
   )
-  printf '%s\n' '3.0.2-x25519-export' >"$OPENSSL_STAMP"
+  printf '%s\n' "$OPENSSL_STAMP_VALUE" >"$OPENSSL_STAMP"
 else
-  log "Reusing the patched OpenSSL 3.0.2 dependency"
+  log "Reusing the patched OpenSSL ${OPENSSL_VERSION} dependency"
 fi
 
+if [[ "$("${OPENSSL_INSTALL_DIR}/bin/openssl" version | awk '{print $2}')" != "$OPENSSL_VERSION" ]]; then
+  die "The installed Taihang OpenSSL version is not ${OPENSSL_VERSION}"
+fi
 if ! nm -g --defined-only "${OPENSSL_INSTALL_DIR}/lib/libcrypto.a" |
      grep -E ' [Tt] x25519_scalar_mulx$' >/dev/null; then
   die "The patched OpenSSL library does not export x25519_scalar_mulx"
