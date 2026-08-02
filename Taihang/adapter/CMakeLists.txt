@@ -36,9 +36,27 @@ foreach(required_path
 endforeach()
 
 find_package(OpenMP REQUIRED)
+set(OPENSSL_USE_STATIC_LIBS TRUE)
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 find_package(xxHash REQUIRED CONFIG)
+
+if(DEFINED OPENSSL_ROOT_DIR)
+  file(REAL_PATH "${OPENSSL_ROOT_DIR}" EXPECTED_OPENSSL_ROOT)
+  file(REAL_PATH "${OPENSSL_CRYPTO_LIBRARY}" RESOLVED_OPENSSL_CRYPTO_LIBRARY)
+  string(FIND
+    "${RESOLVED_OPENSSL_CRYPTO_LIBRARY}"
+    "${EXPECTED_OPENSSL_ROOT}/"
+    OPENSSL_ROOT_POSITION
+  )
+  if(NOT OPENSSL_ROOT_POSITION EQUAL 0)
+    message(FATAL_ERROR
+      "The Taihang adapter must use the patched OpenSSL library under "
+      "${EXPECTED_OPENSSL_ROOT}, but CMake selected "
+      "${RESOLVED_OPENSSL_CRYPTO_LIBRARY}"
+    )
+  endif()
+endif()
 
 add_executable(taihang_pso_adapter main.cpp)
 

@@ -366,18 +366,32 @@ if [[ ! -f "$OPENSSL_STAMP" ]] ||
   if [[ ! -f "${OPENSSL_SOURCE_DIR}/Configure" ]]; then
     tar -xzf "$OPENSSL_ARCHIVE" -C "${TAIHANG_DEPS_DIR}/src"
   fi
-  sed -i 's/^static void x25519_scalar_mulx/void x25519_scalar_mulx/' \
-    "${OPENSSL_SOURCE_DIR}/crypto/ec/curve25519.c"
+  OPENSSL_CURVE25519_SOURCE="${OPENSSL_SOURCE_DIR}/crypto/ec/curve25519.c"
+  if grep -q '^static void x25519_scalar_mulx' "$OPENSSL_CURVE25519_SOURCE"; then
+    sed -i 's/^static void x25519_scalar_mulx/void x25519_scalar_mulx/' \
+      "$OPENSSL_CURVE25519_SOURCE"
+  elif ! grep -q '^void x25519_scalar_mulx' "$OPENSSL_CURVE25519_SOURCE"; then
+    die "Unable to locate the x25519_scalar_mulx declaration in OpenSSL 3.0.2"
+  fi
   (
     cd "$OPENSSL_SOURCE_DIR"
     make clean >/dev/null 2>&1 || true
-    CC=gcc-13 ./Configure --prefix="$OPENSSL_INSTALL_DIR" no-shared no-tests
+    CC=gcc-13 ./Configure \
+      --prefix="$OPENSSL_INSTALL_DIR" \
+      --libdir=lib \
+      no-shared \
+      no-tests
     make -j"$BUILD_JOBS"
     make install_sw
   )
   printf '%s\n' '3.0.2-x25519-export' >"$OPENSSL_STAMP"
 else
   log "Reusing the patched OpenSSL 3.0.2 dependency"
+fi
+
+if ! nm -g --defined-only "${OPENSSL_INSTALL_DIR}/lib/libcrypto.a" |
+     grep -E ' [Tt] x25519_scalar_mulx$' >/dev/null; then
+  die "The patched OpenSSL library does not export x25519_scalar_mulx"
 fi
 
 XXHASH_STAMP="${XXHASH_INSTALL_DIR}/.taihang-xxhash-revision"
@@ -413,14 +427,23 @@ cmake -S "$TAIHANG_PROTOCOLS_DIR" -B "$TAIHANG_PROTOCOLS_BUILD_DIR" \
   -DTAIHANG_BUILD_TESTS=OFF \
   -DTAIHANG_BUILD_BENCHMARKS=OFF \
   -DOPENSSL_ROOT_DIR="$OPENSSL_INSTALL_DIR" \
+  -DOPENSSL_USE_STATIC_LIBS=TRUE \
+  -DOPENSSL_INCLUDE_DIR="${OPENSSL_INSTALL_DIR}/include" \
+  -DOPENSSL_CRYPTO_LIBRARY="${OPENSSL_INSTALL_DIR}/lib/libcrypto.a" \
+  -DOPENSSL_SSL_LIBRARY="${OPENSSL_INSTALL_DIR}/lib/libssl.a" \
   -DxxHash_DIR="${XXHASH_INSTALL_DIR}/lib/cmake/xxHash"
 cmake --build "$TAIHANG_PROTOCOLS_BUILD_DIR" --target taihang_protocols --parallel "$BUILD_JOBS"
 
 log "Building the Taihang PSO adapter"
+rm -rf -- "$TAIHANG_ADAPTER_BUILD_DIR"
 cmake -S "$TAIHANG_ADAPTER_DIR" -B "$TAIHANG_ADAPTER_BUILD_DIR" \
   -DCMAKE_CXX_COMPILER=g++-13 \
   -DTAIHANG_PROTOCOLS_BUILD_DIR="$TAIHANG_PROTOCOLS_BUILD_DIR" \
   -DOPENSSL_ROOT_DIR="$OPENSSL_INSTALL_DIR" \
+  -DOPENSSL_USE_STATIC_LIBS=TRUE \
+  -DOPENSSL_INCLUDE_DIR="${OPENSSL_INSTALL_DIR}/include" \
+  -DOPENSSL_CRYPTO_LIBRARY="${OPENSSL_INSTALL_DIR}/lib/libcrypto.a" \
+  -DOPENSSL_SSL_LIBRARY="${OPENSSL_INSTALL_DIR}/lib/libssl.a" \
   -DxxHash_DIR="${XXHASH_INSTALL_DIR}/lib/cmake/xxHash"
 cmake --build "$TAIHANG_ADAPTER_BUILD_DIR" --parallel "$BUILD_JOBS"
 [[ -x "${TAIHANG_ADAPTER_BUILD_DIR}/taihang_pso_adapter" ]] || die "Missing Taihang PSO adapter"
